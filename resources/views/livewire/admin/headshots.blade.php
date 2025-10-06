@@ -9,8 +9,10 @@ use function Livewire\Volt\{ state, rules, uses };
 uses([WithFileUploads::class]);
 
 state([
-    'items'  => fn () => Headshot::all(),
-    'upload' => null, // temporary uploaded file
+    // pull newest first so new uploads appear at the top
+    'items'  => fn () => Headshot::latest()->get(),
+    'upload' => null,        // Livewire temporary uploaded file
+    'fileId' => fn () => uniqid('file_', true), // used to force-reset the <input type="file">
 ]);
 
 rules([
@@ -19,21 +21,37 @@ rules([
 
 $save = function () {
     $this->authorize('create', \App\Models\Media::class); // reuse MediaPolicy
+
+    // Guard in case user clicks during upload
+    if ($this->upload === null) {
+        $this->addError('upload', 'Please choose an image first.');
+        return;
+    }
+
     $this->validate();
 
+    // Store and persist
     $stored = $this->upload->store('headshots', 'public'); // storage/app/public/headshots/...
     $path   = "storage/{$stored}";
 
     Headshot::create([
-        'path'       => $path,
+        'path' => $path,
     ]);
 
+    // Reset the file input and temp upload so the next selection is clean
+    $this->reset('upload');
+    $this->fileId = uniqid('file_', true);
+
+    // Refresh items so the new image appears immediately
+    $this->items = Headshot::latest()->get();
+
+    // Flash success (no redirect)
     session()->flash('status', 'Uploaded!');
-    return back(); // simple full refresh
 };
 
 $delete = function (int $id) {
-    $this->authorize('create', \App\Models\Media::class); // same admin gate
+    $this->authorize('create', \App\Models\Media::class);
+
     $h = Headshot::findOrFail($id);
 
     if (str_starts_with($h->path, 'storage/headshots/')) {
@@ -42,12 +60,13 @@ $delete = function (int $id) {
     }
 
     $h->delete();
+
+    // Refresh items so the deletion reflects immediately
+    $this->items = Headshot::latest()->get();
+
     session()->flash('status', 'Deleted.');
-    return back();
 };
-
 ?>
-
 <div class="mx-auto max-w-5xl p-4">
     @include('.components._controls')
     <h1 class="mb-4 text-xl font-semibold">Headshots (Admin)</h1>
@@ -59,18 +78,36 @@ $delete = function (int $id) {
     @endif
 
     @can('create', \App\Models\Media::class)
-        <div class="mb-6 flex items-center gap-3">
-            <input type="file"
-                   class="rounded-md border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                   wire:model="upload" accept="image/*">
-            <button type="button"
+        {{-- Use a real form so submit waits for Livewire --}}
+        <form wire:submit.prevent="$call('save')" class="mb-6 flex items-center gap-3"
+              x-data>
+            <input
+                :key="$wire.fileId"  {{-- force a new DOM node after each save --}}
+            key="{{ $fileId }}"  {{-- SSR key hint --}}
+                type="file"
+                class="rounded-md border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                wire:model="upload"
+                wire:key="uploader-{{ $fileId }}"
+                accept="image/*">
+
+            <button type="submit"
                     class="rounded-md bg-zinc-900 px-4 py-2 text-sm text-white disabled:opacity-60"
-                    wire:click="$call('save')" wire:loading.attr="disabled">
-                <span wire:loading.remove>Upload</span>
-                <span wire:loading>Uploading…</span>
+                    {{-- disable while file is uploading or action is running --}}
+                    wire:loading.attr="disabled"
+                    wire:target="upload,save">
+                <span wire:loading.remove wire:target="upload,save">Upload</span>
+                <span wire:loading wire:target="upload,save">Processing…</span>
             </button>
-            @error('upload') <span class="text-sm text-red-600">{{ $message }}</span> @enderror
-        </div>
+
+            {{-- show progress while the file is uploading --}}
+            <div class="text-sm text-zinc-600" wire:loading wire:target="upload">
+                Uploading file…
+            </div>
+
+            @error('upload')
+            <span class="text-sm text-red-600">{{ $message }}</span>
+            @enderror
+        </form>
     @endcan
 
     {{-- Simple grid --}}
@@ -89,7 +126,8 @@ $delete = function (int $id) {
                         <div class="flex justify-end p-2">
                             <button type="button"
                                     class="rounded-lg border border-red-200 bg-red-50 px-3 py-1 text-xs text-red-700"
-                                    wire:click="$call('delete', {{ $h->id }})">
+                                    wire:click="$call('delete', {{ $h->id }})"
+                                    wire:loading.attr="disabled" wire:target="delete">
                                 Delete
                             </button>
                         </div>
