@@ -21,7 +21,7 @@ return new class extends Migration
             $table->boolean('is_published')->default(true);
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('tag')->default('general')->index();
-            $table->string('style', 50)->nullable()->index()->after('tag');
+            $table->string('style', 50)->nullable();
             $table->longText('embed_html')->nullable(); // stores full <iframe ...>
             $table->timestamps();
         });
