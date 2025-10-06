@@ -14,6 +14,7 @@ state([
     'type' => 'image',      // image|video
     'title' => '',
     'tag' => 'all',
+    'style' => null,
     'embed_html' => '', // when type = embed
 ]);
 
@@ -21,6 +22,7 @@ rules([
     'type' => 'required|in:image,embed',
     'title' => 'nullable|string|max:255',
     'tag' => 'required|string|max:50',
+    'style' => 'nullable|in:hip-hop,contemporary,fusion', // fusion = "fusion / jazz funk"
     'upload' => 'nullable|file|max:102400',  // only used when type=image
     'embed_html' => 'nullable|string',       // used when type=embed
 ]);
@@ -68,10 +70,11 @@ $save = function () {
         'title' => $this->title ?: null,
         'sort_order' => $nextOrder,
         'created_by' => auth()->id(),
-        'tag' => $this->tag,
+        'tag'   => $this->tag,
+        'style' => $this->tag === 'dancing' ? $this->style : null,
     ]);
 
-    $this->reset(['upload','title','type','embed_html']);
+    $this->reset(['upload','title', 'type','embed_html','style']);
     $this->tag = $this->tag ?: 'all';
     $this->items = \App\Models\Media::orderBy('sort_order')->orderByDesc('id')->get();
     $this->dispatch('close', name: 'upload-media'); // tell Flux to close this modal
@@ -123,7 +126,7 @@ $reloadItems = function (string $section = 'all') {
                 wire:change="$set('items', [])"
                 x-on:change="$wire.$call('reloadItems', $event.target.value)">
             <option class="text-black" value="all">All</option>
-            <option class="text-black" value="film-choreo">Film Choreo</option>
+            <option class="text-black" value="creative-direction">Creative Direction</option>
             <option class="text-black" value="stage-choreo">Stage Choreo</option>
             <option class="text-black" value="dancing">Dancing</option>
             <option class="text-black" value="teaching">Teaching</option>
@@ -201,13 +204,29 @@ $reloadItems = function (string $section = 'all') {
                         <span class="text-zinc-700 dark:text-zinc-200">Tag / Section</span>
                         <select class="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
                                 wire:model.live="tag">
-                            <option value="dancing">Dancing</option>
-                            <option value="teaching">Teaching</option>
-                            <option value="film-choreo">Film Choreo</option>
+                            <option>Please Select</option>
+                            <option value="creative-direction">Creative Direction</option>
                             <option value="stage-choreo">Stage Choreo</option>
+                            <option value="teaching">Teaching</option>
+                            <option value="dancing">Dancing</option>
                         </select>
                         @error('tag') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
                     </label>
+
+                    {{-- Style (only when tag = dancing) --}}
+                    @if ($tag === 'dancing')
+                        <label class="block text-sm">
+                            <span class="text-zinc-700 dark:text-zinc-200">Style</span>
+                            <select class="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                                    wire:model.defer="style">
+                                <option value="">(Choose a style)</option>
+                                <option value="hip-hop">Hip Hop</option>
+                                <option value="contemporary">Contemporary</option>
+                                <option value="fusion">Fusion / Jazz Funk</option>
+                            </select>
+                            @error('style') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                        </label>
+                    @endif
 
                     {{-- Type --}}
                     <label class="block text-sm">

@@ -11,7 +11,7 @@ class Media extends Model
     protected $fillable = [
         'type', 'path', 'title',
         'sort_order', 'created_by',
-        'tag', 'embed_html',
+        'tag', 'style', 'embed_html',
     ];
 
     public function scopePublished(Builder $q): Builder

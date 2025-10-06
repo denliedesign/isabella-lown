@@ -11,7 +11,7 @@ Route::get('/', function () {
 
 Route::view('/dancing', 'dancing')->name('dancing');
 Route::view('/teaching', 'teaching')->name('teaching');
-Route::view('/film-choreo', 'film-choreo')->name('film-choreo');
+Route::view('/creative-direction', 'creative-direction')->name('creative-direction');
 Route::view('/stage-choreo', 'stage-choreo')->name('stage-choreo');
 
 
