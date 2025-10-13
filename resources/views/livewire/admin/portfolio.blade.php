@@ -312,7 +312,7 @@ $reloadItems = function (string $section = 'all') {
                                     type="file"
                                     wire:key="media-upload-{{ $type }}"
                                     accept="{{ $type === 'video' ? 'video/*' : 'image/*' }}"
-                                    class="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 file:me-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-2"
+                                    class="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 file:me-3 file:rounded-md file:border file:border-zinc-100 file:px-3 file:py-2"
                                     wire:model="upload"
                                 >
 
@@ -341,7 +341,7 @@ $reloadItems = function (string $section = 'all') {
                                 <input
                                     type="file"
                                     accept="image/*"
-                                    class="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 file:me-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-2"
+                                    class="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-zinc-700 file:me-3 file:rounded-md file:border file:border-zinc-100 file:px-3 file:py-2"
                                     wire:model="poster_upload"
                                 >
                                 @error('poster_upload') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
