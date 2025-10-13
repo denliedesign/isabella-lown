@@ -137,34 +137,4 @@ class Media extends Model
         // Spaces → returns CDN URL if 'url' is set on the disk in config/filesystems.php
         return Storage::disk(self::DISK)->url($key);
     }
-
-    /* -----------------------------
-     |          Model Events
-     * ----------------------------*/
-
-    /**
-     * On delete, remove files from disk(s).
-     * (Enable only if your Spaces key has Delete permission.)
-     */
-    protected static function booted(): void
-    {
-        static::deleting(function (Media $media) {
-            // Soft delete: don't remove files on soft delete
-            if ($media->isForceDeleting()) {
-                foreach (['path', 'poster_path'] as $col) {
-                    $val = $media->{$col};
-                    if (!$val) continue;
-
-                    if (Str::startsWith($val, 'storage/')) {
-                        // Legacy local public disk
-                        $local = Str::after($val, 'storage/'); // strip prefix
-                        Storage::disk('public')->delete($local);
-                    } else {
-                        // Spaces object key
-                        Storage::disk(self::DISK)->delete($val);
-                    }
-                }
-            }
-        });
-    }
 }
