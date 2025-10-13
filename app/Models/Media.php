@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 class Media extends Model
 {
     protected $fillable = [
-        'type', 'path', 'title',
+        'type', 'path', 'poster_path', 'title',
         'sort_order', 'created_by',
         'tag', 'style', 'embed_html',
     ];

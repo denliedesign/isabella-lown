@@ -41,7 +41,33 @@
                         <div class="relative z-10 my-1 px-1 text-md font-black uppercase">{{ $item->title }}</div>
                     @endif
                 </div>
+            @elseif ($item->type === 'video' && $item->path)
+                <div>
+                    <div class="relative mb-1 overflow-hidden">
+                        <div class="absolute inset-0 z-0 bg-cover bg-center bg-tile"
+                             style="background-image:url('/images/chrome.jpg')"></div>
 
+                        <div class="relative z-10 p-1 border border-zinc-200 dark:border-zinc-700">
+                            <div class="w-full flex justify-center">
+                                <div class="relative">
+                                    <div class="absolute inset-0 z-0 bg-cover bg-center bg-tile"></div>
+                                    <video
+                                        class="relative z-10 w-full h-full"
+                                        src="{{ asset($item->path) }}"
+                                        @if(!empty($item->poster_path)) poster="{{ asset($item->poster_path) }}" @endif
+                                        preload="metadata"
+                                        controls
+                                        playsinline
+                                    ></video>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if ($item->title)
+                        <div class="relative z-10 my-1 px-1 text-md font-black uppercase">{{ $item->title }}</div>
+                    @endif
+                </div>
             @elseif ($isEmbed && $isInsta)
                 {{-- Instagram (portrait-ish) --}}
                 <div>

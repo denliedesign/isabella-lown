@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('type');            // image | video
             $table->string('path')->nullable();  // storage path or URL
+            $table->string('poster_path', 512)->nullable();
             $table->string('title')->nullable();
             $table->text('caption')->nullable();
             $table->unsignedInteger('sort_order')->default(0);

@@ -9,6 +9,17 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
+// routes/web.php
+Route::get('/phpinfo', function () {
+    return [
+        'upload_max_filesize' => ini_get('upload_max_filesize'),
+        'post_max_size'       => ini_get('post_max_size'),
+        'max_execution_time'  => ini_get('max_execution_time'),
+        'max_input_time'      => ini_get('max_input_time'),
+    ];
+});
+
+
 Route::view('/dancing', 'dancing')->name('dancing');
 Route::view('/teaching', 'teaching')->name('teaching');
 Route::view('/creative-direction', 'creative-direction')->name('creative-direction');

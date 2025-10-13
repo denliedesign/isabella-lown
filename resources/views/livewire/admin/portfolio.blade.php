@@ -11,7 +11,8 @@ uses([WithFileUploads::class]);
 state([
     'items' => fn () => Media::orderBy('sort_order')->orderByDesc('id')->get(),
     'upload' => null,         // temporary file (image or video)
-    'type' => 'image',      // image|video
+    'poster_upload' => null,   // optional poster when type = video
+    'type' => 'image',      // image|video|embed
     'title' => '',
     'tag' => 'all',
     'style' => null,
@@ -19,11 +20,12 @@ state([
 ]);
 
 rules([
-    'type' => 'required|in:image,embed',
+    'type' => 'required|in:image,video,embed',
     'title' => 'nullable|string|max:255',
     'tag' => 'required|string|max:50',
     'style' => 'nullable|in:hip-hop,contemporary,fusion', // fusion = "fusion / jazz funk"
-    'upload' => 'nullable|file|max:102400',  // only used when type=image
+    'upload' => 'nullable|file',
+    'poster_upload' => 'nullable|image|max:10240', // up to ~10MB for posters
     'embed_html' => 'nullable|string',       // used when type=embed
 ]);
 
@@ -46,15 +48,29 @@ $save = function () {
     $this->validate();
 
     $path = null;
+    $posterPath = null;
 
-    if ($this->type === 'image') {
-        $path = $this->upload ? $this->upload->store('portfolio', 'public') : null;
-        if (!$path) {
-            $this->addError('upload', 'Please choose an image file.');
-            return;
-        }
-        $path = "storage/{$path}";
-    } else { // embed
+       if ($this->type === 'image') {
+               // stricter validation for images
+               $this->validate(['upload' => 'required|image|max:102400']); // ~100MB
+               $stored = $this->upload->store('portfolio', 'public');
+               $path   = "storage/{$stored}";
+
+           } elseif ($this->type === 'video') {
+               // video files: mp4 / webm / ogg — increase limit if you need
+               $this->validate(['upload' => 'required|mimetypes:video/*|max:512000']); // ~500MB
+               $stored = $this->upload->store('portfolio', 'public');
+               $path   = "storage/{$stored}";
+
+           // optional poster
+           if ($this->poster_upload) {
+               $pStored    = $this->poster_upload->store('portfolio_posters', 'public');
+               $posterPath = "storage/{$pStored}";
+           } else {
+               $posterPath = null; // no poster
+           }
+
+           } else { // embed
         if (trim((string)$this->embed_html) === '') {
             $this->addError('embed_html', 'Please paste the YouTube embed iframe.');
             return;
@@ -66,6 +82,7 @@ $save = function () {
     \App\Models\Media::create([
         'type' => $this->type,              // image | embed
         'path' => $path,                    // null for embed
+        'poster_path' => $posterPath,
         'embed_html' => $this->type === 'embed' ? $this->embed_html : null,
         'title' => $this->title ?: null,
         'sort_order' => $nextOrder,
@@ -74,7 +91,7 @@ $save = function () {
         'style' => $this->tag === 'dancing' ? $this->style : null,
     ]);
 
-    $this->reset(['upload','title', 'type','embed_html','style']);
+    $this->reset(['upload','poster_upload','title','type','embed_html','style']);
     $this->tag = $this->tag ?: 'all';
     $this->items = \App\Models\Media::orderBy('sort_order')->orderByDesc('id')->get();
     $this->dispatch('close', name: 'upload-media'); // tell Flux to close this modal
@@ -91,17 +108,36 @@ $delete = function (int $id) {
         Storage::disk('public')->delete($old);
     }
 
+    if ($m->poster_path && str_starts_with($m->poster_path, 'storage/portfolio_posters/')) {
+        $pOld = str_replace('storage/', '', $m->poster_path);
+        Storage::disk('public')->delete($pOld);
+    }
+
     $m->delete();
     $this->items = Media::orderBy('sort_order')->orderByDesc('id')->get();
 };
 
 $reorder = function (array $orderedIds) {
-    $this->authorize('viewAny', Media::class);
-    foreach ($orderedIds as $i => $id) {
-        Media::whereKey($id)->update(['sort_order' => $i + 1]);
-    }
-    $this->items = Media::orderBy('sort_order')->orderByDesc('id')->get();
+    $this->authorize('viewAny', \App\Models\Media::class);
+
+    // Keep it safe & consistent
+    \Illuminate\Support\Facades\DB::transaction(function () use ($orderedIds) {
+        foreach ($orderedIds as $i => $id) {
+            \App\Models\Media::whereKey($id)->update(['sort_order' => $i + 1]);
+        }
+    });
+
+    // Reload the current listing
+    $this->items = \App\Models\Media::orderBy('sort_order')->orderByDesc('id')->get();
 };
+
+//$reorder = function (array $orderedIds) {
+//    $this->authorize('viewAny', Media::class);
+//    foreach ($orderedIds as $i => $id) {
+//        Media::whereKey($id)->update(['sort_order' => $i + 1]);
+//    }
+//    $this->items = Media::orderBy('sort_order')->orderByDesc('id')->get();
+//};
 
 $reloadItems = function (string $section = 'all') {
     $q = Media::orderBy('sort_order')->orderByDesc('id');
@@ -126,70 +162,79 @@ $reloadItems = function (string $section = 'all') {
                 wire:change="$set('items', [])"
                 x-on:change="$wire.$call('reloadItems', $event.target.value)">
             <option class="text-black" value="all">All</option>
+            <option class="text-black" value="home">Home</option>
             <option class="text-black" value="creative-direction">Creative Direction</option>
             <option class="text-black" value="stage-choreo">Stage Choreo</option>
             <option class="text-black" value="dancing">Dancing</option>
             <option class="text-black" value="teaching">Teaching</option>
         </select>
 
-        {{-- List / Reorder --}}
-        <div id="look-grid"
+        <!-- UI sortable list -->
+        <div
             x-data="{
-                order: @entangle('items').defer,
-                draggingId: null,
-                start(e,id){ this.draggingId=id; e.dataTransfer.effectAllowed='move' },
-                over(e){ e.preventDefault() },
-                drop(e,id){
-                    e.preventDefault();
-                    if(this.draggingId===null||this.draggingId===id) return;
-                    const ids = this.order.map(i=>i.id);
-                    const from = ids.indexOf(this.draggingId);
-                    const to = ids.indexOf(id);
-                    ids.splice(to,0, ids.splice(from,1)[0]);
-                    $wire.reorder(ids);
-                    this.draggingId=null;
-                }
-            }"
-            class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      ids: @js($items->pluck('id')->values()),   // <-- IDs only, never undefined
+      draggingId: null,
+      start(e, id) {
+        this.draggingId = id;
+        e.dataTransfer.effectAllowed = 'move';
+      },
+      over(e) { e.preventDefault(); },
+      drop(e, id) {
+        e.preventDefault();
+        if (this.draggingId === null || this.draggingId === id) return;
+
+        // local reorder
+        const ids = [...this.ids];
+        const from = ids.indexOf(this.draggingId);
+        const to   = ids.indexOf(id);
+        if (from === -1 || to === -1) return;
+        ids.splice(to, 0, ids.splice(from, 1)[0]);
+        this.ids = ids;
+
+        // persist to server
+        $wire.reorder(ids);
+        this.draggingId = null;
+      }
+  }"
+            class="space-y-3"
         >
-            @foreach($items as $m)
-                <div id="look-card"
-                    draggable="true"
+            @foreach ($items as $m)
+                <div
+                    data-id="{{ $m->id }}"               {{-- not strictly needed but handy for debugging --}}
+                draggable="true"
                     @dragstart="start($event, {{ $m->id }})"
                     @dragover="over($event)"
                     @drop="drop($event, {{ $m->id }})"
-                    class="group relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700"
+                    class="flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-2 bg-white dark:bg-zinc-900"
                 >
-                    <div class="aspect-video bg-zinc-100 dark:bg-zinc-900">
+                    <div class="cursor-grab select-none text-zinc-500" title="Drag">&#x2630;</div>
+
+                    <div class="size-16 shrink-0 rounded overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800">
                         @if ($m->type === 'image' && $m->path)
-                            <img class="h-full w-full object-cover" src="{{ asset($m->path) }}" alt="{{ $m->title ?? '' }}">
-                        @elseif ($m->type === 'embed' && $m->embed_html)
-                            <div class="h-full w-full">
-                                {!! $m->embed_html !!}
-                            </div>
+                            <img src="{{ asset($m->path) }}" alt="" class="h-full w-full object-cover">
+                        @elseif ($m->type === 'video' && $m->path)
+                            <video src="{{ asset($m->path) }}" class="h-full w-full object-cover" preload="metadata" muted></video>
+                        @elseif ($m->type === 'embed')
+                            <div class="flex h-full w-full items-center justify-center text-[10px] uppercase text-zinc-500">Embed</div>
                         @endif
                     </div>
 
-                    <div class="flex items-center justify-between gap-3 px-2 pt-2">
-                        <div class="min-w-0">
-                            <div class="truncate font-medium">{{ $m->title ?? basename($m->path) }}</div>
-                            <div class="text-xs text-zinc-500">{{ $m->tag }} · {{ $m->type }}</div>
-                        </div>
-
-                        @can('update', $m)
-                            <div class="flex shrink-0 items-center gap-2">
-                                <button
-                                    type="button"
-                                    class="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700"
-                                    wire:click="$call('delete', {{ $m->id }})"
-                                >Delete</button>
-                            </div>
-                        @endcan
+                    <div class="min-w-0 grow">
+                        <div class="truncate font-medium">{{ $m->title ?: basename($m->path ?? 'embed') }}</div>
+                        <div class="text-xs text-zinc-500">{{ $m->tag }}@if($m->style) · {{ $m->style }}@endif · {{ $m->type }}</div>
                     </div>
+
+                    <button type="button"
+                            class="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700"
+                            wire:click="$call('delete', {{ $m->id }})">
+                        Delete
+                    </button>
                 </div>
             @endforeach
+        </div>
 
-    </div>
+        <!-- end sortable UI list -->
+
     @can('create', \App\Models\Media::class)
         {{-- Modal --}}
             <flux:modal name="upload-media" class="md:w-96">
@@ -205,6 +250,7 @@ $reloadItems = function (string $section = 'all') {
                         <select class="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
                                 wire:model.live="tag">
                             <option>Please Select</option>
+                            <option value="home">Home</option>
                             <option value="creative-direction">Creative Direction</option>
                             <option value="stage-choreo">Stage Choreo</option>
                             <option value="teaching">Teaching</option>
@@ -234,6 +280,7 @@ $reloadItems = function (string $section = 'all') {
                         <select class="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
                                 wire:model.live="type">
                             <option value="image">Image (upload)</option>
+                            <option value="video">Video (upload)</option>
                             <option value="embed">YouTube (paste iframe)</option>
                         </select>
                         @error('type') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
@@ -251,12 +298,55 @@ $reloadItems = function (string $section = 'all') {
                         </label>
                     @else
                         <label class="block text-sm">
-                            <span class="text-zinc-700 dark:text-zinc-200">Image file</span>
-                            <input type="file"
-                                   class="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 file:me-3 file:rounded-md file:border-0 file:bg-zinc-700 file:px-3 file:py-2"
-                                   wire:model="upload">
+  <span class="text-zinc-700 dark:text-zinc-200">
+    {{ $type === 'video' ? 'Video file' : 'Image file' }}
+  </span>
+
+                            <div x-data="{ isUploading:false, progress:0 }"
+                                 x-on:livewire-upload-start="isUploading=true; progress=0"
+                                 x-on:livewire-upload-finish="isUploading=false"
+                                 x-on:livewire-upload-error="isUploading=false"
+                                 x-on:livewire-upload-progress="progress=$event.detail.progress">
+
+                                <input
+                                    type="file"
+                                    wire:key="media-upload-{{ $type }}"
+                                    accept="{{ $type === 'video' ? 'video/*' : 'image/*' }}"
+                                    class="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 file:me-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-2"
+                                    wire:model="upload"
+                                >
+
+                                {{-- progress bar --}}
+                                <div x-show="isUploading" class="mt-2 h-2 rounded bg-zinc-200/70 overflow-hidden">
+                                    <div class="h-2 bg-emerald-500 transition-all" :style="'width:'+progress+'%;'"></div>
+                                </div>
+                                <div x-show="isUploading" class="mt-1 text-xs text-zinc-600" x-text="progress + '%'"></div>
+
+                                {{-- optional cancel (just clears the temp file prop) --}}
+                                <button x-show="isUploading" type="button"
+                                        class="mt-2 rounded border px-2 py-1 text-xs"
+                                        wire:click="$set('upload', null)">
+                                    Cancel
+                                </button>
+                            </div>
+
                             @error('upload') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
                         </label>
+
+
+                        {{-- Poster (optional) — no progress bar --}}
+                        @if ($type === 'video')
+                            <label class="mt-3 block text-sm">
+                                <span class="text-zinc-700 dark:text-zinc-200">Poster image (optional)</span>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    class="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 file:me-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-2"
+                                    wire:model="poster_upload"
+                                >
+                                @error('poster_upload') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                            </label>
+                        @endif
                     @endif
 
                     {{-- Title --}}
@@ -284,3 +374,4 @@ $reloadItems = function (string $section = 'all') {
         </flux:modal>
         @endcan
     </div>
+</div>

@@ -4,13 +4,21 @@
         @include('partials.head')
     </head>
     <body class="min-h-screen bg-zinc-950" style="color: white;" id="top">
-        <flux:header class="border-zinc-700 bg-zinc-950">
-            <flux:sidebar.toggle inset="left" class="lg:hidden me-3" icon="bars-2" />
+    <flux:header class="border-zinc-700 bg-zinc-950 text-white subpixel-antialiased [color-scheme:dark]">
+        <flux:sidebar.toggle inset="left" class="lg:hidden me-3" icon="bars-2" />
 
-            <flux:navbar class="-mb-px max-lg:hidden mx-auto">
-               @include('components._nav')
-            </flux:navbar>
-        </flux:header>
+        <flux:navbar class="-mb-px max-lg:hidden mx-auto">
+            @include('components._nav')
+        </flux:navbar>
+    </flux:header>
+
+    {{--        <flux:header class="border-zinc-700 bg-zinc-950">--}}
+{{--            <flux:sidebar.toggle inset="left" class="lg:hidden me-3" icon="bars-2" />--}}
+
+{{--            <flux:navbar class="-mb-px max-lg:hidden mx-auto">--}}
+{{--               @include('components._nav')--}}
+{{--            </flux:navbar>--}}
+{{--        </flux:header>--}}
 
         <!-- Mobile Menu -->
         <flux:sidebar stashable sticky class="lg:hidden border-e border-zinc-700 bg-zinc-900">

@@ -2,7 +2,10 @@
 
     @php
         // Fast, simple query—no publish filter since you removed it
-        $items = \App\Models\Media::orderBy('sort_order')->orderByDesc('id')->get();
+        $items = \App\Models\Media::where('tag','home')
+                  ->orderBy('sort_order')
+                  ->orderByDesc('id')
+                  ->get();
     @endphp
 
     <div class="mx-auto">
