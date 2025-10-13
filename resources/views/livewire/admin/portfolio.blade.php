@@ -50,27 +50,30 @@ $save = function () {
     $path = null;
     $posterPath = null;
 
-       if ($this->type === 'image') {
-               // stricter validation for images
-               $this->validate(['upload' => 'required|image|max:102400']); // ~100MB
-               $stored = $this->upload->store('portfolio', 'public');
-               $path   = "storage/{$stored}";
+    if ($this->type === 'image') {
+        // stricter validation for images
+        $this->validate(['upload' => 'required|image|max:102400']); // ~100MB
 
-           } elseif ($this->type === 'video') {
-               // video files: mp4 / webm / ogg — increase limit if you need
-               $this->validate(['upload' => 'required|mimetypes:video/*|max:512000']); // ~500MB
-               $stored = $this->upload->store('portfolio', 'public');
-               $path   = "storage/{$stored}";
+        // store to Spaces (returns a key like "portfolio/abcd.jpg")
+        $stored = $this->upload->store('portfolio', 'spaces');
+        $path   = $stored; // DO NOT prefix with "storage/"
+    }
+    elseif ($this->type === 'video') {
+        // mp4/webm/ogg – raise limit if needed
+        $this->validate(['upload' => 'required|mimetypes:video/*|max:512000']); // ~500MB
 
-           // optional poster
-           if ($this->poster_upload) {
-               $pStored    = $this->poster_upload->store('portfolio_posters', 'public');
-               $posterPath = "storage/{$pStored}";
-           } else {
-               $posterPath = null; // no poster
-           }
+        // store to Spaces
+        $stored = $this->upload->store('portfolio', 'spaces');
+        $path   = $stored;
 
-           } else { // embed
+        // optional poster to Spaces
+        if ($this->poster_upload) {
+            $pStored    = $this->poster_upload->store('portfolio_posters', 'spaces');
+            $posterPath = $pStored;
+        } else {
+            $posterPath = null;
+        }
+    } else { // embed
         if (trim((string)$this->embed_html) === '') {
             $this->addError('embed_html', 'Please paste the YouTube embed iframe.');
             return;
@@ -103,19 +106,32 @@ $delete = function (int $id) {
     $m = Media::findOrFail($id);
     $this->authorize('delete', $m);
 
-    if (str_starts_with($m->path, 'storage/portfolio/')) {
-        $old = str_replace('storage/', '', $m->path);
-        Storage::disk('public')->delete($old);
+    // Delete main file
+    if ($m->path) {
+        if (str_starts_with($m->path, 'storage/')) {
+            // legacy local file
+            $old = str_replace('storage/', '', $m->path);
+            Storage::disk('public')->delete($old);
+        } else {
+            // spaces key
+            Storage::disk('spaces')->delete($m->path);
+        }
     }
 
-    if ($m->poster_path && str_starts_with($m->poster_path, 'storage/portfolio_posters/')) {
-        $pOld = str_replace('storage/', '', $m->poster_path);
-        Storage::disk('public')->delete($pOld);
+    // Delete poster
+    if ($m->poster_path) {
+        if (str_starts_with($m->poster_path, 'storage/')) {
+            $pOld = str_replace('storage/', '', $m->poster_path);
+            Storage::disk('public')->delete($pOld);
+        } else {
+            Storage::disk('spaces')->delete($m->poster_path);
+        }
     }
 
     $m->delete();
     $this->items = Media::orderBy('sort_order')->orderByDesc('id')->get();
 };
+
 
 $reorder = function (array $orderedIds) {
     $this->authorize('viewAny', \App\Models\Media::class);
@@ -130,14 +146,6 @@ $reorder = function (array $orderedIds) {
     // Reload the current listing
     $this->items = \App\Models\Media::orderBy('sort_order')->orderByDesc('id')->get();
 };
-
-//$reorder = function (array $orderedIds) {
-//    $this->authorize('viewAny', Media::class);
-//    foreach ($orderedIds as $i => $id) {
-//        Media::whereKey($id)->update(['sort_order' => $i + 1]);
-//    }
-//    $this->items = Media::orderBy('sort_order')->orderByDesc('id')->get();
-//};
 
 $reloadItems = function (string $section = 'all') {
     $q = Media::orderBy('sort_order')->orderByDesc('id');
@@ -211,13 +219,22 @@ $reloadItems = function (string $section = 'all') {
 
                     <div class="size-16 shrink-0 rounded overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800">
                         @if ($m->type === 'image' && $m->path)
-                            <img src="{{ asset($m->path) }}" alt="" class="h-full w-full object-cover">
+                            <img src="{{ $m->cdn_url }}" alt="" class="h-full w-full object-cover" loading="lazy" decoding="async">
                         @elseif ($m->type === 'video' && $m->path)
-                            <video src="{{ asset($m->path) }}" class="h-full w-full object-cover" preload="metadata" muted></video>
+                            @if ($m->poster_cdn_url)
+                                {{-- Prefer a poster so we don't spin up the video element for the list --}}
+                                <img src="{{ $m->poster_cdn_url }}" alt="" class="h-full w-full object-cover" loading="lazy" decoding="async">
+                            @else
+                                <video class="h-full w-full object-cover" preload="metadata" muted playsinline>
+                                    {{-- If you ever store .m3u8, you can check extension and set type accordingly --}}
+                                    <source src="{{ $m->cdn_url }}" type="video/mp4">
+                                </video>
+                            @endif
                         @elseif ($m->type === 'embed')
                             <div class="flex h-full w-full items-center justify-center text-[10px] uppercase text-zinc-500">Embed</div>
                         @endif
                     </div>
+
 
                     <div class="min-w-0 grow">
                         <div class="truncate font-medium">{{ $m->title ?: basename($m->path ?? 'embed') }}</div>

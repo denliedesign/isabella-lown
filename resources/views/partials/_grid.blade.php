@@ -1,4 +1,5 @@
 {{-- resources/views/portfolio/_grid.blade.php --}}
+@php use Illuminate\Support\Str; @endphp
 @props(['items'])
 
 <div class="columns-1 md:columns-2 lg:columns-3 gap-4 masonry">
@@ -10,10 +11,7 @@
                 $html    = $isEmbed ? $item->embed_html : '';
 
                 // Detect Instagram from the embed HTML
-                $isInsta = $isEmbed && \Illuminate\Support\Str::contains(
-                    $html,
-                    ['instagram.com', 'class="instagram-media"']
-                );
+                $isInsta = $isEmbed && Str::contains($html, ['instagram.com', 'class="instagram-media"']);
 
                 // Make width/height fluid if present
                 $fluidHtml = $isEmbed
@@ -23,25 +21,36 @@
                         $html
                     )
                     : '';
+
+                // CDN-backed URLs from model accessors
+                $src        = $item->cdn_url ?? null;
+                $posterSrc  = $item->poster_cdn_url ?? null;
+
+                // Simple HLS detection if you ever upload .m3u8
+                $isHls = $item->type === 'video' && $item->path && Str::endsWith($item->path, '.m3u8');
             @endphp
 
-            @if ($item->type === 'image' && $item->path)
+            @if ($item->type === 'image' && $src)
                 <div>
                     <div class="relative mb-1 overflow-hidden">
                         <div class="absolute inset-0 z-0 bg-cover bg-center bg-tile"
                              style="background-image:url('/images/chrome.jpg')"></div>
 
-                        <img class="relative z-10 block w-full h-auto p-1 border border-zinc-200 dark:border-zinc-700"
-                             src="{{ asset($item->path) }}"
-                             alt="{{ $item->title ?? basename($item->path) }}"
-                             loading="lazy" decoding="async" />
+                        <img
+                            class="relative z-10 block w-full h-auto p-1 border border-zinc-200 dark:border-zinc-700"
+                            src="{{ $src }}"
+                            alt="{{ $item->title ?? basename($item->path ?? '') }}"
+                            loading="lazy"
+                            decoding="async"
+                        />
                     </div>
 
                     @if ($item->title)
                         <div class="relative z-10 my-1 px-1 text-md font-black uppercase">{{ $item->title }}</div>
                     @endif
                 </div>
-            @elseif ($item->type === 'video' && $item->path)
+
+            @elseif ($item->type === 'video' && $src)
                 <div>
                     <div class="relative mb-1 overflow-hidden">
                         <div class="absolute inset-0 z-0 bg-cover bg-center bg-tile"
@@ -51,14 +60,21 @@
                             <div class="w-full flex justify-center">
                                 <div class="relative">
                                     <div class="absolute inset-0 z-0 bg-cover bg-center bg-tile"></div>
+
+                                    {{-- Use <source> so we can set the proper type (helps some browsers) --}}
                                     <video
                                         class="relative z-10 w-full h-full"
-                                        src="{{ asset($item->path) }}"
-                                        @if(!empty($item->poster_path)) poster="{{ asset($item->poster_path) }}" @endif
+                                        @if($posterSrc) poster="{{ $posterSrc }}" @endif
                                         preload="metadata"
                                         controls
                                         playsinline
-                                    ></video>
+                                    >
+                                        @if($isHls)
+                                            <source src="{{ $src }}" type="application/x-mpegURL">
+                                        @else
+                                            <source src="{{ $src }}" type="video/mp4">
+                                        @endif
+                                    </video>
                                 </div>
                             </div>
                         </div>
@@ -68,6 +84,7 @@
                         <div class="relative z-10 my-1 px-1 text-md font-black uppercase">{{ $item->title }}</div>
                     @endif
                 </div>
+
             @elseif ($isEmbed && $isInsta)
                 {{-- Instagram (portrait-ish) --}}
                 <div>

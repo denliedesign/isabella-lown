@@ -47,17 +47,17 @@ return [
             'report' => false,
         ],
 
-        's3' => [
+        'spaces' => [
             'driver' => 's3',
-            'key' => env('AWS_ACCESS_KEY_ID'),
-            'secret' => env('AWS_SECRET_ACCESS_KEY'),
-            'region' => env('AWS_DEFAULT_REGION'),
-            'bucket' => env('AWS_BUCKET'),
-            'url' => env('SPACES_CDN_URL'),
-            'endpoint' => env('AWS_ENDPOINT'),
-            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
-            'throw' => false,
-            'report' => false,
+            'key' => env('SPACES_KEY'),
+            'secret' => env('SPACES_SECRET'),
+            'region' => env('SPACES_REGION', 'sfo3'),
+            'bucket' => env('SPACES_BUCKET'),
+            'endpoint' => env('SPACES_ENDPOINT'),
+            'use_path_style_endpoint' => false,
+            'throw' => true,
+            'url' => env('SPACES_CDN_URL'), // generates CDN-backed URLs
+            'visibility' => 'public',        // or 'private' if you’ll sign URLs
         ],
 
     ],
