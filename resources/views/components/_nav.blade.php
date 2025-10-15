@@ -17,9 +17,10 @@
 {{--<flux:navbar.item :href="route('bio')" :current="request()->routeIs('bio')" wire:navigate>--}}
 {{--    {{ __('Bio') }}--}}
 {{--</flux:navbar.item>--}}
-<div class="mr-5"><x-app-logo /></div>
+<div class="mr-5 hidden lg:block"><x-app-logo /></div>
 <flux:navbar.item
     :href="route('home')"
+    style="color: white !important;"
     :current="request()->routeIs('home')"
     wire:navigate
     class="navlink rounded-md px-3 py-1.5 transition-colors
@@ -36,6 +37,7 @@
 
 <flux:navbar.item
     :href="route('creative-direction')"
+    style="color: white !important;"
     :current="request()->routeIs('creative-direction')"
     wire:navigate
     class="navlink rounded-md px-3 py-1.5 transition-colors
@@ -52,6 +54,7 @@
 
 <flux:navbar.item
     :href="route('stage-choreo')"
+    style="color: white !important;"
     :current="request()->routeIs('stage-choreo')"
     wire:navigate
     class="navlink rounded-md px-3 py-1.5 transition-colors
@@ -68,6 +71,7 @@
 
 <flux:navbar.item
     :href="route('teaching')"
+    style="color: white !important;"
     :current="request()->routeIs('teaching')"
     wire:navigate
     class="navlink rounded-md px-3 py-1.5 transition-colors
@@ -84,6 +88,7 @@
 
 <flux:navbar.item
     :href="route('dancing')"
+    style="color: white !important;"
     :current="request()->routeIs('dancing')"
     wire:navigate
     class="navlink rounded-md px-3 py-1.5 transition-colors
@@ -100,6 +105,7 @@
 
 <flux:navbar.item
     :href="route('bio')"
+    style="color: white !important;"
     :current="request()->routeIs('bio')"
     wire:navigate
     class="navlink rounded-md px-3 py-1.5 transition-colors

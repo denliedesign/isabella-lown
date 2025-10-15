@@ -1,4 +1,4 @@
-<x-layouts.app>
+<x-layouts.app title="Creative Direction">
 
     @php
         // Fast, simple query—no publish filter since you removed it

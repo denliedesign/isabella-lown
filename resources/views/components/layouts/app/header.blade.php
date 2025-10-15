@@ -21,16 +21,18 @@
 {{--        </flux:header>--}}
 
         <!-- Mobile Menu -->
-        <flux:sidebar stashable sticky class="lg:hidden border-e border-zinc-700 bg-zinc-900">
-            <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
-            <flux:navbar class="flex flex-col items-start justify-start gap-4 p-4 text-left">
-                @include('components._nav')
-            </flux:navbar>
-        </flux:sidebar>
+    <flux:sidebar stashable sticky class="lg:hidden border-e border-zinc-700 bg-zinc-900 justify-start">
+        <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
+        <flux:navbar class="flex flex-col items-start justify-start gap-4 p-4 text-left">
+            @include('components._nav')
+        </flux:navbar>
+    </flux:sidebar>
 
-        {{ $slot }}
 
-        {{-- In your base layout, near the end of <body> --}}
+    {{ $slot }}
+
+
+    {{-- In your base layout, near the end of <body> --}}
         <div id="toTopWrap"
              class="fixed right-4 bottom-4 z-[100] pointer-events-auto lg:right-6 lg:bottom-6">
             <flux:button
