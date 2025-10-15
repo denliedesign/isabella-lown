@@ -1,4 +1,4 @@
-<x-layouts.app :title="__('Isabella Lown')">
+<x-layouts.app title="Isabella Lown | ">
 
     @php
         // Fast, simple query—no publish filter since you removed it

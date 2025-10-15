@@ -1,4 +1,4 @@
-<x-layouts.app title="Bio">
+<x-layouts.app title="Isabella Lown | Bio">
 
 
 

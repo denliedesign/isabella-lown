@@ -1,4 +1,4 @@
-<x-layouts.app title="Teaching">
+<x-layouts.app title="Isabella Lown | Teaching">
 
     @php
         // Fast, simple query—no publish filter since you removed it

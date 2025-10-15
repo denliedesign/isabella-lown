@@ -1,4 +1,4 @@
-<x-layouts.app title="Dancing">
+<x-layouts.app title="Isabella Lown | Dancing">
 
     @php
         $all = \App\Models\Media::where('tag','dancing')

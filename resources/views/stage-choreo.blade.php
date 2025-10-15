@@ -1,4 +1,4 @@
-<x-layouts.app title="Stage Choreo">
+<x-layouts.app title="Isabella Lown | Stage Choreo">
 
     @php
         // Fast, simple query—no publish filter since you removed it
